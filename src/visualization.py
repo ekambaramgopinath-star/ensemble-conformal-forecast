@@ -76,6 +76,28 @@ def plot_rolling_coverage(
     save_path=None,
 ):
     """Compute and plot the rolling coverage mean."""
+    y_true = np.asarray(y_true).reshape(-1)
+    lower_e = np.asarray(lower_e).reshape(-1)
+    upper_e = np.asarray(upper_e).reshape(-1)
+    lower_a = np.asarray(lower_a).reshape(-1)
+    upper_a = np.asarray(upper_a).reshape(-1)
+
+    lengths = {
+        len(y_true),
+        len(lower_e),
+        len(upper_e),
+        len(lower_a),
+        len(upper_a),
+    }
+    if len(lengths) != 1:
+        raise ValueError(
+            "All rolling coverage inputs must have the same "
+            "length after flattening. "
+            f"Got lengths: y_true={len(y_true)}, lower_e={len(lower_e)}, "
+            f"upper_e={len(upper_e)}, lower_a={len(lower_a)}, "
+            f"upper_a={len(upper_a)}"
+        )
+
     cov_e = ((y_true >= lower_e) & (y_true <= upper_e)).astype(float)
     cov_a = ((y_true >= lower_a) & (y_true <= upper_a)).astype(float)
 

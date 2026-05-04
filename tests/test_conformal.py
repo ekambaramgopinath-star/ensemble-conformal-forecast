@@ -10,7 +10,9 @@ def test_get_residuals_and_apply_enbpi():
     assert np.allclose(residuals, np.array([0.1, 0.2, 0.5]))
 
     lower, upper = apply_enbpi(np.array([2.5, 3.0]), residuals, alpha=0.2)
-    q = np.quantile(residuals, 1 - 0.2)
+    n = len(residuals)
+    q_level = min(np.ceil((n + 1) * (1 - 0.2)) / n, 1.0)
+    q = np.quantile(residuals, q_level)
     assert lower.shape == (2,)
     assert upper.shape == (2,)
     assert np.allclose(lower, np.array([2.5 - q, 3.0 - q]))

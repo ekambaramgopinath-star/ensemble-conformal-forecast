@@ -26,18 +26,32 @@ ensemble-conformal-forecast/
 ├── data/
 │   └── sp500.csv             # Downloaded historical price data
 ├── notebooks/
-│   └── 01_exploration.ipynb  # EDA and result exploration
+│   ├── 01_exploration.ipynb  # EDA and result exploration
+│   └── sensitivity_analysis.ipynb
 ├── results/
 │   └── ...                   # Generated predictions and outputs
+├── reports/
+│   └── ...                   # Plots and CSV tables for Chapter 4
 ├── scripts/
-│   └── run_pipeline.py       # Main pipeline entrypoint
+│   ├── run_pipeline.py       # Main pipeline entrypoint (SP500)
+│   ├── run_assets.py         # Multi-asset comparison pipeline
+│   └── generate_report.py    # Bar-chart report generator
 ├── src/
+│   ├── backtest.py           # Trading strategy simulation & equity curves
 │   ├── conformal.py          # EnbPI and AgACI logic
-│   ├── download_data.py      # Data download utilities
-│   ├── generate_results.py   # Result tables and plots
+│   ├── download_data.py      # Data download utilities (yfinance)
+│   ├── evaluation.py         # Shared metric functions
+│   ├── generate_results.py   # Result tables and plots (Chapter 4)
 │   ├── models.py             # LSTM/GRU ensemble definitions
 │   ├── processor.py          # Scaling and sequence generation
+│   ├── stats_test.py         # Cross-asset statistical comparison helpers
+│   ├── tuning.py             # Optuna hyperparameter tuning stub
 │   └── visualization.py      # Plotting helpers
+├── tests/
+│   ├── test_conformal.py     # Unit tests for conformal logic
+│   └── test_processor.py     # Unit tests for data processing
+├── Dockerfile                # Container build spec
+├── docker-compose.yml        # Full workflow container orchestration
 ├── README.md                 # This document
 └── requirements.txt          # Python dependencies
 ```
@@ -106,10 +120,31 @@ docker run --rm `
 ```powershell
 docker run --rm `
   -v "${PWD}:/app" `
+  -v "${PWD}/data:/app/data" `
+  -v "${PWD}/results:/app/results" `
+  -v "${PWD}/reports:/app/reports" `
+   -v "${PWD}/reports:/app/reports/asset_comparison" `
+  -e PYTHONPATH=/app `
+  ensemble-conformal-forecast `
+  sh -c "python src/backtest.py; python scripts/run_assets.py; python scripts/generate_report.py"
+```
+
+```powershell
+docker run --rm `
+  -v "${PWD}:/app" `
   -w /app `
   -e PYTHONPATH=/app `
   ensemble-conformal-forecast `
-  sh -c "jupyter nbconvert --to notebook --execute notebooks/01_exploration.ipynb --output executed/executed_notebook.ipynb --ExecutePreprocessor.timeout=600"
+  sh -c "jupyter nbconvert --to notebook --execute notebooks/sensitivity_analysis.ipynb --output executed/sa_result.ipynb --ExecutePreprocessor.timeout=600"
+```
+
+```powershell
+docker run --rm `
+  -v "${PWD}:/app" `
+  -w /app `
+  -e PYTHONPATH=/app `
+  ensemble-conformal-forecast `
+  sh -c "jupyter nbconvert --to notebook --execute notebooks/01_exploration.ipynb --output executed/full_result.ipynb --ExecutePreprocessor.timeout=600"
 ```
 
 Or use Docker Compose:
@@ -128,7 +163,7 @@ docker-compose up --build
 
 code is located in `notebooks/01_exploration.ipynb`
 
-Open `notebooks/executed/executed_notebook.ipynb` to inspect:
+Open `notebooks/executed/executed_notebook.ipynb` (or `result1.ipynb` / `result2.ipynb`) to inspect:
 
 * point forecast performance,
 * interval coverage,
@@ -145,6 +180,23 @@ Provides global prediction intervals using ensemble residuals from a calibration
 ### AgACI
 
 Uses a rolling window of recent residuals to adapt prediction intervals during regime changes. This improves local coverage in volatile periods.
+
+---
+
+## 📊 Evaluation Framework (per Thesis Chapter)
+
+| Thesis Section | Metric / Test | Code Location |
+|---|---|---|
+| §4.2 Point Forecast Accuracy | RMSE, MAE, MAPE | `src/evaluation.py` → `rmse`, `mae`, `mape` |
+| §4.2 Statistical Comparison | Diebold-Mariano test (LSTM vs GRU) | `src/stats_test.py` → `diebold_mariano` |
+| §4.3 Interval Quality | Empirical Coverage, Coverage Deviation | `src/evaluation.py` → `coverage`, `coverage_deviation` |
+| §4.3 Interval Efficiency | Average Interval Width | `src/evaluation.py` → `interval_width` |
+| §4.3 Proper Scoring Rule | Winkler Score (penalises width + violations) | `src/evaluation.py` → `winkler_score` |
+| §4.3 Formal Calibration Test | Kupiec POF test (chi-squared, H₀: failure rate = α) | `src/evaluation.py` → `kupiec_pof_test` |
+| §4.4 Adaptive Behaviour | 20-day rolling coverage plot | `src/visualization.py` → `plot_rolling_coverage` |
+| §4.4 Regime-Conditional Coverage | High-vol vs low-vol coverage split | `src/evaluation.py` → `conditional_coverage` |
+| §4.5 Sensitivity Analysis | α, window, ensemble size sweeps | `notebooks/sensitivity_analysis.ipynb` |
+| §5.x Practical Utility | Sharpe Ratio, Max Drawdown, Total Return | `src/backtest.py` → `evaluate_strategy` |
 
 ---
 

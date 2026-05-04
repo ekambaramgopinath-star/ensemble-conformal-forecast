@@ -11,4 +11,4 @@ services:
     working_dir: /app
     environment:
       - PYTHONUNBUFFERED=1
-    command: ["sh", "-c", "python scripts/download_data.py && python scripts/run_pipeline.py && python src/generate_results.py"]
+    command: ["sh", "-c", "python src/download_data.py && python scripts/run_pipeline.py && python src/generate_results.py"]

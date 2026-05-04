@@ -8,45 +8,68 @@ class DataProcessor:
         self.window = window
         self.scaler = StandardScaler()
 
-    def load_series(self, path, column='Close'):
-        data = pd.read_csv(path)
-        prices = pd.to_numeric(data[column], errors='coerce')
-        prices = prices.dropna()
-        return prices.to_numpy().reshape(-1, 1)
+    # ----------------------------
+    # 1. LOAD PRICE SERIES
+    # ----------------------------
+    def load_series(self, path, column="Close"):
+        df = pd.read_csv(path)
+        prices = pd.to_numeric(df[column], errors="coerce").dropna()
+        return prices.values.astype(float)
 
-    def load_and_scale(self, path, column='Close'):
-        prices = self.load_series(path, column)
-        return self.scaler.fit_transform(prices)
+    # ----------------------------
+    # 2. CONVERT TO LOG RETURNS
+    # ----------------------------
+    def to_returns(self, prices):
+        returns = np.log(prices[1:] / prices[:-1])
+        return returns
 
-    def fit_scaler(self, values):
-        values = np.asarray(values).reshape(-1, 1)
-        self.scaler.fit(values)
-
-    def transform(self, values):
-        values = np.asarray(values)
-        shaped = values.reshape(-1, 1)
-        transformed = self.scaler.transform(shaped)
-        return transformed.reshape(values.shape)
-
-    def inverse_transform(self, values):
-        values = np.asarray(values)
-        shaped = values.reshape(-1, 1)
-        inverted = self.scaler.inverse_transform(shaped)
-        return inverted.reshape(values.shape)
-
+    # ----------------------------
+    # 3. CREATE SEQUENCES (ON RETURNS)
+    # ----------------------------
     def create_sequences(self, data):
         X, y = [], []
         for i in range(len(data) - self.window):
-            X.append(data[i: i + self.window])
-            y.append(data[i + self.window])
+            X.append(data[i:i+self.window])
+            y.append(data[i+self.window])
         return np.array(X), np.array(y)
 
+    # ----------------------------
+    # 4. TRAIN / CAL / TEST SPLIT
+    # ----------------------------
     def split_data(self, X, y, train_p=0.6, cal_p=0.2):
         n = len(X)
         tr = int(train_p * n)
         cl = int(cal_p * n)
+
         return (
             (X[:tr], y[:tr]),
             (X[tr:tr+cl], y[tr:tr+cl]),
             (X[tr+cl:], y[tr+cl:])
-            )
+        )
+
+    # ----------------------------
+    # 5. SCALING (ON RETURNS)
+    # ----------------------------
+    def fit_scaler(self, train_data):
+        self.scaler.fit(train_data.reshape(-1, 1))
+
+    def transform(self, data):
+        shape = data.shape
+        return self.scaler.transform(data.reshape(-1, 1)).reshape(shape)
+
+    def inverse(self, data):
+        return self.scaler.inverse_transform(
+            np.asarray(data).reshape(-1, 1)
+        ).flatten()
+
+    def inverse_transform(self, data):
+        return self.inverse(data)
+
+    # ----------------------------
+    # 6. RECONSTRUCT PRICES FROM RETURNS
+    # ----------------------------
+    def reconstruct_prices(self, last_price, predicted_returns):
+        prices = [last_price]
+        for r in predicted_returns:
+            prices.append(prices[-1] * np.exp(r))
+        return np.array(prices[1:])
